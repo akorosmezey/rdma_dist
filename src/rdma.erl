@@ -50,7 +50,8 @@ connect(Host, PortNumber, Options) ->
 
 connect(Host, PortNumber, Options, Timeout)->
     ?check_server(),
-    Socket = open_port({spawn, "rdma_drv"}, proplists:compact(filter_proplist(Options, [packet, binary]))),
+    file:write_file("drvLog", io_lib:format("Opening port with options: ~p~n", [filter_proplist(Options, [binary, packet])])),
+    Socket = open_port({spawn_driver, "rdma_drv"}, filter_proplist(Options, [binary, packet])),
 
     HostStr = case inet:ntoa(Host) of
         {error, einval} ->
@@ -59,7 +60,11 @@ connect(Host, PortNumber, Options, Timeout)->
             Address
     end,
 
-    case control(Socket, ?DRV_CONNECT, term_to_binary([{dest_host, HostStr}, {dest_port, integer_to_list(PortNumber)}, {timeout, Timeout} | prepare_options_list(Options)])) of
+    file:write_file("drvLog", io_lib:format("Connecting with options: ~p~n", [prepare_options_list(Options)]), [append]),
+
+    case control(Socket, ?DRV_CONNECT, term_to_binary([{dest_host, HostStr},
+                                                       {dest_port, integer_to_list(PortNumber)},
+                                                       {timeout, Timeout} | prepare_options_list(Options)])) of
         ok ->
             receive
                 {Socket, established} ->
@@ -81,9 +86,13 @@ listen(PortNumber) ->
 
 listen(PortNumber, Options) ->
     ?check_server(),
-    Socket = open_port({spawn, "rdma_drv"}, proplists:compact(filter_proplist(Options, [packet, binary]))),
+
+    Socket = open_port({spawn_driver, "rdma_drv"}, filter_proplist(Options, [binary, packet])),
+    file:write_file("drvLog", io_lib:format("Opening port with options: ~p~n", [filter_proplist(Options, [binary, packet])])),
+
+    file:write_file("drvLog", io_lib:format("Listening with options: ~p~n", [prepare_options_list(Options)]), [append]),
     case control(Socket, ?DRV_LISTEN, term_to_binary([{port, PortNumber} | prepare_options_list(Options)])) of
-        ok -> 
+        ok ->
             {ok, Socket};
         {error, Reason} ->
             close(Socket),
@@ -174,7 +183,7 @@ recv(Socket, Timeout) ->
                     {ok, Data};
                 {Socket, {error, Reason}} ->
                     close(Socket),
-                    {error, Reason} 
+                    {error, Reason}
             after Timeout ->
                 timeout(Socket),
                 {error, timeout}
@@ -282,4 +291,5 @@ timeout(Socket) ->
     end.
 
 filter_proplist(Proplist, Keylist) ->
-    lists:flatten(lists:map(fun(Key) -> proplists:lookup_all(Key, Proplist) end, Keylist)).
+    {Lists, _} = proplists:split(Proplist, Keylist),
+    proplists:compact(lists:flatten(Lists)).
