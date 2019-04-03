@@ -1211,6 +1211,7 @@ static void rdma_drv_control_listen(RdmaDrvData* data, char* buf, ei_x_buff* x)
 
 		return;
 	}
+	data->options.binary = true;
 
 	/* Create the event channel */
 	data->ec = rdma_create_event_channel();
@@ -1413,14 +1414,14 @@ static void rdma_drv_control_setopts(RdmaDrvData* data, char* buf, ei_x_buff* x)
 		return;
 	}
 
-    if (data->options.binary)
-    {
-        set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
-    }
-    else
-    {
-        set_port_control_flags(data->port, 0);
-    }
+	if (data->options.binary)
+	{
+		set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
+	}
+	else
+	{
+		set_port_control_flags(data->port, 0);
+	}
 
 	if (data->options.active)
 	{
