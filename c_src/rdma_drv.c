@@ -1204,7 +1204,6 @@ static void rdma_drv_control_listen(RdmaDrvData* data, char* buf, ei_x_buff* x)
 	int ret;
 
 	/* Parse the connection options */
-	set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
 	rdma_drv_options_init(&data->options);
 	if (!rdma_drv_options_parse(&data->options, buf))
 	{
@@ -1414,6 +1413,15 @@ static void rdma_drv_control_setopts(RdmaDrvData* data, char* buf, ei_x_buff* x)
 		return;
 	}
 
+    if (data->options.binary)
+    {
+        set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
+    }
+    else
+    {
+        set_port_control_flags(data->port, 0);
+    }
+
 	if (data->options.active)
 	{
 		/* Start polling. */
@@ -1422,7 +1430,7 @@ static void rdma_drv_control_setopts(RdmaDrvData* data, char* buf, ei_x_buff* x)
 	else
 	{
 		/* Stop polling. */
-		rdma_drv_resume(data);
+		rdma_drv_pause(data);
 	}
 
 	ei_x_encode_atom(x, "ok");
