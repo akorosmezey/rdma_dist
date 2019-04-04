@@ -1042,10 +1042,45 @@ static void rdma_drv_handle_send_complete(RdmaDrvData* data, struct ibv_wc* wc)
 	}
 }
 
+static ErlDrvBinary* ei_x_to_new_binary(ei_x_buff* x)
+{
+	ErlDrvBinary* bin = driver_alloc_binary(x->index);
+
+	if (bin != NULL)
+	{
+		memcpy(&bin->orig_bytes[0], x->buff, x->index);
+	}
+
+	return bin;
+}
+
+static void rdma_drv_encode_error_string(ei_x_buff* x, const char* str)
+{
+	ei_x_encode_tuple_header(x, 2);
+	ei_x_encode_atom(x, "error");
+	ei_x_encode_string(x, str);
+}
+
+static void rdma_drv_encode_error_posix(ei_x_buff* x, int error)
+{
+	ei_x_encode_tuple_header(x, 2);
+	ei_x_encode_atom(x, "error");
+	ei_x_encode_atom(x, erl_errno_id(error));
+}
+
+static void rdma_drv_encode_error_atom(ei_x_buff* x, const char* str)
+{
+	ei_x_encode_tuple_header(x, 2);
+	ei_x_encode_atom(x, "error");
+	ei_x_encode_atom(x, str);
+}
+
 static bool rdma_drv_flush_cq(RdmaDrvData* data)
 {
 	bool completed = false;
 	struct ibv_wc wc;
+	ei_x_buff x;
+	char* rbuf;
 
 	while (!completed && ibv_poll_cq(data->cq, 1, &wc))
 	{
@@ -1060,8 +1095,23 @@ static bool rdma_drv_flush_cq(RdmaDrvData* data)
 				rdma_drv_handle_send_complete(data, &wc);
 			}
 		}
+		else
+		{
+			/* Unsuccessful work request: return or send message with error */
+			ei_x_new_with_version(&x);
+			rdma_drv_encode_error_string(&x, "ibv_poll_cq");
+			rbuf = (char*) ei_x_to_new_binary(&x);
+			size_t rbuf_size = sizeof(rbuf);
 
-		/* XXX: What to do about unsuccessful work items? */
+			if (!data->options.binary || (data->options.packet > rbuf_size))
+			{
+				driver_output2(data->port, rbuf, rbuf_size, NULL, 0);
+			}
+			else
+			{
+				driver_output(data->port, rbuf, rbuf_size);
+			}
+		}
 	}
 
 	rdma_drv_post_ack(data);
@@ -1097,27 +1147,6 @@ static void rdma_drv_ready_input(ErlDrvData drv_data, ErlDrvEvent event)
 	{
 		rdma_drv_handle_comp_channel_event(data);
 	}
-}
-
-static void rdma_drv_encode_error_string(ei_x_buff* x, const char* str)
-{
-	ei_x_encode_tuple_header(x, 2);
-	ei_x_encode_atom(x, "error");
-	ei_x_encode_string(x, str);
-}
-
-static void rdma_drv_encode_error_posix(ei_x_buff* x, int error)
-{
-	ei_x_encode_tuple_header(x, 2);
-	ei_x_encode_atom(x, "error");
-	ei_x_encode_atom(x, erl_errno_id(error));
-}
-
-static void rdma_drv_encode_error_atom(ei_x_buff* x, const char* str)
-{
-	ei_x_encode_tuple_header(x, 2);
-	ei_x_encode_atom(x, "error");
-	ei_x_encode_atom(x, str);
 }
 
 static void rdma_drv_control_connect(RdmaDrvData* data, char* buf, ei_x_buff* x)
@@ -1458,18 +1487,6 @@ static void rdma_drv_control_timeout(RdmaDrvData* data, ei_x_buff* x)
 	}
 
 	ei_x_encode_atom(x, "ok");
-}
-
-static ErlDrvBinary* ei_x_to_new_binary(ei_x_buff* x)
-{
-	ErlDrvBinary* bin = driver_alloc_binary(x->index);
-
-	if (bin != NULL)
-	{
-		memcpy(&bin->orig_bytes[0], x->buff, x->index);
-	}
-
-	return bin;
 }
 
 static ErlDrvSSizeT rdma_drv_control(

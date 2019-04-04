@@ -87,8 +87,8 @@ listen(PortNumber) ->
 listen(PortNumber, Options) ->
     ?check_server(),
 
-    Socket = open_port({spawn_driver, "rdma_drv"}, filter_proplist(Options, [binary, packet])),
     file:write_file("drvLog", io_lib:format("Opening port with options: ~p~n", [filter_proplist(Options, [binary, packet])])),
+    Socket = open_port({spawn_driver, "rdma_drv"}, filter_proplist(Options, [binary, packet])),
 
     file:write_file("drvLog", io_lib:format("Listening with options: ~p~n", [prepare_options_list(Options)]), [append]),
     case control(Socket, ?DRV_LISTEN, term_to_binary([{port, PortNumber} | prepare_options_list(Options)])) of
