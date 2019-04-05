@@ -931,7 +931,9 @@ static bool rdma_drv_handle_recv_complete(RdmaDrvData* data, struct ibv_wc* wc)
 	}
 	else
 	{
-		ErlDrvSizeT remaining = imm_data;
+		/* for compatibility with normal usage when length is not passed in IMM */
+		ErlDrvSizeT remaining = imm_data ? imm_data : wc->byte_len;
+
 		ErlDrvSizeT recv_amount = remaining < data->options.buffer_size ? remaining : data->options.buffer_size;
 
 		if ((remaining > data->options.buffer_size) && !data->incomplete_recv)
