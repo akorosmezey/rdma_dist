@@ -634,7 +634,6 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	}
 
 	memset(new_data, 0, sizeof(RdmaDrvData));
-	new_data->options = data->options;
 	new_port = driver_create_port(data->port, data->caller, "rdma_drv", (ErlDrvData) new_data);
 
 	/* ei is used in the control interface. */
