@@ -1447,6 +1447,12 @@ static void rdma_drv_control_setopts(RdmaDrvData* data, char* buf, ei_x_buff* x)
 	if (data->options.binary)
 	{
 		set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
+		if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+		{
+			rdma_drv_encode_error_atom(x, "failed_to_set_port_to_binary");
+
+			return;
+		}
 	}
 	else
 	{
