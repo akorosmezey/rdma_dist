@@ -719,6 +719,8 @@ static void rdma_drv_handle_rdma_cm_event_route_resolved(RdmaDrvData* data, stru
 	}
 }
 
+static void rdma_drv_encode_error_atom(ei_x_buff* x, const char* str);
+
 static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct rdma_cm_event* cm_event)
 {
 	if (cm_event->id->context)
@@ -735,6 +737,17 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		};
 
 		erl_drv_send_term(driver_mk_port(data->port), data->caller, spec, sizeof(spec) / sizeof(spec[0]));
+
+		if (new_data->options.binary)
+		{
+			set_port_control_flags(new_data->port, PORT_CONTROL_FLAG_BINARY);
+			if ((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+			{
+				rdma_drv_encode_error_atom(new_data, "failed_to_set_port_to_binary_on_est");
+
+				return;
+			}
+		}
 
 		if (new_data->options.active)
 		{
