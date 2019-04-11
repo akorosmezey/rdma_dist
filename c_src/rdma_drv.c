@@ -635,9 +635,21 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 
 	memset(new_data, 0, sizeof(RdmaDrvData));
 	new_port = driver_create_port(data->port, data->caller, "rdma_drv", (ErlDrvData) new_data);
+	if (new_port == (ErlDrvPort*) -1)
+	{
+		rdma_drv_send_error_atom(data, "driver_create_port");
+
+		return;
+	}
 
 	/* ei is used in the control interface. */
 	set_port_control_flags(new_port, PORT_CONTROL_FLAG_BINARY);
+	if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+	{
+		rdma_drv_send_error_atom(data, "failed_to_set_port_to_binary");
+
+		return;
+	}
 
 	/*
 	 * Connect the new port data to the listener so it can be closed
@@ -719,8 +731,6 @@ static void rdma_drv_handle_rdma_cm_event_route_resolved(RdmaDrvData* data, stru
 	}
 }
 
-static void rdma_drv_encode_error_atom(ei_x_buff* x, const char* str);
-
 static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct rdma_cm_event* cm_event)
 {
 	if (cm_event->id->context)
@@ -743,7 +753,7 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 			set_port_control_flags(new_data->port, PORT_CONTROL_FLAG_BINARY);
 			if ((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
 			{
-				rdma_drv_encode_error_atom(new_data, "failed_to_set_port_to_binary_on_est");
+				rdma_drv_send_error_atom(new_data, "failed_to_set_port_to_binary_on_est");
 
 				return;
 			}
@@ -1392,7 +1402,7 @@ static void rdma_drv_control_recv(RdmaDrvData* data, ei_x_buff* x)
 
 		/*
 		 * Caller needs to be set in case rdma_drv_flush_cq needs to
-		 * output anytihng.
+		 * output anything.
 		 */
 		data->caller = driver_caller(data->port);
 		if (!rdma_drv_flush_cq(data))
@@ -1618,7 +1628,7 @@ static ErlDrvEntry rdma_drv_entry = {
 	ERL_DRV_EXTENDED_MAJOR_VERSION, /* Major version number */
 	ERL_DRV_EXTENDED_MINOR_VERSION, /* Minor version number */
 	ERL_DRV_FLAG_SOFT_BUSY | /* Driver flags. Soft busy flag is required for distribution drivers */
-	ERL_DRV_FLAG_USE_PORT_LOCKING,
+	ERL_DRV_FLAG_USE_PORT_LOCKING | ERL_DRV_FLAG_SOFT_BUSY,
 	NULL, /* Reserved for internal use */
 	NULL, /* process_exit callback */
 	NULL /* stop_select callback */
