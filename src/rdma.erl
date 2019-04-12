@@ -108,7 +108,8 @@ accept(Socket, Timeout) ->
             receive
                 {Socket, {port, ClientPort}} ->
                     receive
-                        {Socket, {accept, ClientPort}} ->
+                        %%{Socket, {accept, ClientPort}} ->
+                        {Socket, accept} ->
                             {ok, ClientPort};
                         {Socket, {error, Reason}} ->
                             file:write_file("drvLog", io_lib:format("Accept failure: ~p~n", [Reason]), [append]),
