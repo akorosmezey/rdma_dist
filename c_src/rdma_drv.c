@@ -25,6 +25,11 @@
 #include "rdma_drv_buffers.h"
 #include "rdma_drv_options.h"
 
+#include <stdio.h>
+
+FILE* log1;
+#define LOG(STR) log1 = fopen("crvLog", "a"); fprintf(log1, "%s", STR); fclose(log1)
+
 #define DRV_CONNECT 'C'
 #define DRV_LISTEN 'L'
 #define DRV_ACCEPT 'A'
@@ -634,8 +639,20 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 
 		return;
 	}
-
 	memset(new_data, 0, sizeof(RdmaDrvData));
+
+	LOG("Creating lock\n");
+	data->pdl = driver_pdl_create(data->port);
+	if (data->pdl == NULL)
+	{
+		LOG("Failed creating lock\n");
+		rdma_drv_send_error_atom(data, "driver_pdl_create");
+
+		return;
+	}
+	LOG("Locking old port\n");
+	driver_pdl_lock(data->pdl);
+	LOG("Creating new port\n");
 	new_port = driver_create_port(data->port, data->caller, "rdma_drv", (ErlDrvData) new_data);
 	if (new_port == (ErlDrvPort*) -1)
 	{
@@ -645,20 +662,23 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	}
 
 	/* ei is used in the control interface. */
-	new_data->pdl = driver_pdl_create(new_port);
-	driver_pdl_lock(new_data->pdl);
+	LOG("Setting new port to binary\n");
 	set_port_control_flags(new_port, PORT_CONTROL_FLAG_BINARY);
-	if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+	if ((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
 	{
+		LOG("Failed setting new port to binary\n");
 		rdma_drv_send_error_atom(data, "failed_to_set_port_to_binary");
 
 		return;
 	}
+	LOG("Unlocking old port\n");
+	driver_pdl_unlock(data->pdl);
 
 	/*
 	 * Connect the new port data to the listener so it can be closed
 	 * if the listener decides to first.
 	 */
+	LOG("Add data\n");
 	new_data->listener = data;
 	ret = rdma_drv_add_data(data, new_data);
 	if (!ret)
@@ -671,7 +691,6 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	new_data->id = cm_event->id;
 	new_data->port = new_port;
 	new_data->options = data->options;
-	driver_pdl_unlock(new_data->pdl);
 
 	/* Send the port to Erlang. */
 	ErlDrvTermData spec[] = {
@@ -682,6 +701,7 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 		ERL_DRV_TUPLE, 2,
 	};
 
+	LOG("Send \'port\' message\n");
 	erl_drv_send_term(driver_mk_port(data->port), data->caller, spec, sizeof(spec) / sizeof(spec[0]));
 
 	/*
@@ -694,8 +714,10 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	new_data->id->context = new_data;
 
 	/* If ibverbs are initialized successfully, accept the connection. */
+	LOG("Init ibverbs\n");
 	if (rdma_drv_init_ibverbs(new_data))
 	{
+		LOG("Call RDMA accept\n");
 		ret = rdma_accept(new_data->id, &cm_params);
 		if (ret)
 		{
@@ -704,6 +726,7 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 			return;
 		}
 	}
+	LOG("Done with accept\n");
 }
 
 static void rdma_drv_handle_rdma_cm_event_addr_resolved(RdmaDrvData* data, struct rdma_cm_event* cm_event)
@@ -738,10 +761,18 @@ static void rdma_drv_handle_rdma_cm_event_route_resolved(RdmaDrvData* data, stru
 
 static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct rdma_cm_event* cm_event)
 {
+	LOG("Connection established\n");
 	if (cm_event->id->context)
 	{
 		RdmaDrvData* new_data = (RdmaDrvData*) cm_event->id->context;
 		new_data->state = STATE_CONNECTED;
+
+		LOG("Connected using event context\n");
+		if (!new_data->pdl)
+		{
+			new_data->pdl = driver_create_pdl(new_data->port);
+		}
+		driver_pdl_lock(new_data->pdl);
 
 		ErlDrvTermData spec[] = {
 			ERL_DRV_PORT, driver_mk_port(data->port),
@@ -751,18 +782,22 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 			ERL_DRV_TUPLE, 2,
 		};
 
+		LOG("Sending \'accept\' message\n");
 		erl_drv_send_term(driver_mk_port(data->port), data->caller, spec, sizeof(spec) / sizeof(spec[0]));
 
 		if (new_data->options.binary)
 		{
+			LOG("Setting port to binary again\n");
 			set_port_control_flags(new_data->port, PORT_CONTROL_FLAG_BINARY);
-			if ((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+			if (!((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY)))
 			{
+				LOG("Failed setting port to binary again\n");
 				rdma_drv_send_error_atom(new_data, "failed_to_set_port_to_binary_on_est");
 
 				return;
 			}
 		}
+		driver_pdl_lock(new_data->pdl);
 
 		if (new_data->options.active)
 		{
@@ -774,10 +809,12 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		}
 
 		/* We've completed an accept, so stop polling. */
+		LOG("Polling paused\n");
 		rdma_drv_pause(data);
 	}
 	else
 	{
+		LOG("Connected using old data\n");
 		data->state = STATE_CONNECTED;
 
 		/* Stop polling for events unless this is an active socket. */
@@ -787,6 +824,7 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 			ERL_DRV_TUPLE, 2,
 		};
 
+		LOG("Sending \'accept\' message with old port\n");
 		erl_drv_send_term(driver_mk_port(data->port), data->caller, spec, sizeof(spec) / sizeof(spec[0]));
 
 		if (!data->options.active)
