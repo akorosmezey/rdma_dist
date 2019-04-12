@@ -641,11 +641,11 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	}
 	memset(new_data, 0, sizeof(RdmaDrvData));
 
-	LOG("Creating lock\n");
+	LOG("Creating lock for old port\n");
 	data->pdl = driver_pdl_create(data->port);
 	if (data->pdl == NULL)
 	{
-		LOG("Failed creating lock\n");
+		LOG("Failed creating lock for old port\n");
 		rdma_drv_send_error_atom(data, "driver_pdl_create");
 
 		return;
@@ -660,17 +660,30 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 
 		return;
 	}
+	LOG("Creating lock for new port\n");
+	new_data->pdl = driver_pdl_create(new_port);
+	if (new_data->pdl == NULL)
+	{
+		LOG("Failed creating lock for new port\n");
+		rdma_drv_send_error_atom(data, "driver_pdl_create");
+
+		return;
+	}
+	LOG("Locking new port\n");
+	driver_pdl_lock(new_data->pdl);
 
 	/* ei is used in the control interface. */
 	LOG("Setting new port to binary\n");
 	set_port_control_flags(new_port, PORT_CONTROL_FLAG_BINARY);
-	if ((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
+	if ((get_port_flags(new_port) & PORT_CONTROL_FLAG_BINARY) == 0)
 	{
 		LOG("Failed setting new port to binary\n");
 		rdma_drv_send_error_atom(data, "failed_to_set_port_to_binary");
 
 		return;
 	}
+	LOG("Unlocking new port\n");
+	driver_pdl_unlock(new_data->pdl);
 	LOG("Unlocking old port\n");
 	driver_pdl_unlock(data->pdl);
 
