@@ -675,13 +675,13 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	/* ei is used in the control interface. */
 	LOG("Setting new port to binary\n");
 	set_port_control_flags(new_port, PORT_CONTROL_FLAG_BINARY);
-	if ((get_port_flags(new_port) & PORT_CONTROL_FLAG_BINARY) == 0)
-	{
-		LOG("Failed setting new port to binary\n");
-		rdma_drv_send_error_atom(data, "failed_to_set_port_to_binary");
+	/* if ((get_port_flags(new_port) & PORT_CONTROL_FLAG_BINARY) == 0) */
+	/* { */
+	/*  LOG("Failed setting new port to binary\n"); */
+	/*  rdma_drv_send_error_atom(data, "failed_to_set_port_to_binary"); */
 
-		return;
-	}
+	/*  return; */
+	/* } */
 	LOG("Unlocking new port\n");
 	driver_pdl_unlock(new_data->pdl);
 	LOG("Unlocking old port\n");
@@ -1526,12 +1526,12 @@ static void rdma_drv_control_setopts(RdmaDrvData* data, char* buf, ei_x_buff* x)
 	if (data->options.binary)
 	{
 		set_port_control_flags(data->port, PORT_CONTROL_FLAG_BINARY);
-		if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
-		{
-			rdma_drv_encode_error_atom(x, "failed_to_set_port_to_binary");
+		/* if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0) */
+		/* { */
+		/*  rdma_drv_encode_error_atom(x, "failed_to_set_port_to_binary"); */
 
-			return;
-		}
+		/*  return; */
+		/* } */
 	}
 	else
 	{
