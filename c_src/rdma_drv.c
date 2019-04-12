@@ -682,8 +682,8 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 
 	/*  return; */
 	/* } */
-	LOG("Unlocking new port\n");
-	driver_pdl_unlock(new_data->pdl);
+	/* LOG("Unlocking new port\n");
+	   driver_pdl_unlock(new_data->pdl); */
 	LOG("Unlocking old port\n");
 	driver_pdl_unlock(data->pdl);
 
@@ -807,8 +807,8 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		/*      return; */
 		/*  } */
 		/* } */
-		/* LOG("Unlocking new port\n"); */
-		/* driver_pdl_unlock(new_data->pdl); */
+		LOG("Unlocking new port\n");
+		driver_pdl_unlock(new_data->pdl);
 
 		if (new_data->options.active)
 		{
