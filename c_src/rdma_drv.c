@@ -65,6 +65,8 @@ typedef struct rdma_drv_data
 	RdmaDrvOptions options;
 	ErlDrvPort port;
 	ErlDrvTermData caller;
+	/* Port data lock for port-level locking during accept */
+	ErlDrvPDL pdl;
 
 	/* rdma connection manager stuff */
 	struct rdma_cm_id* id;
@@ -643,6 +645,8 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	}
 
 	/* ei is used in the control interface. */
+	new_data->pdl = driver_pdl_create(new_port);
+	driver_pdl_lock(new_data->pdl);
 	set_port_control_flags(new_port, PORT_CONTROL_FLAG_BINARY);
 	if ((get_port_flags(data->port) & PORT_CONTROL_FLAG_BINARY) == 0)
 	{
@@ -667,6 +671,7 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 	new_data->id = cm_event->id;
 	new_data->port = new_port;
 	new_data->options = data->options;
+	driver_pdl_unlock(new_data->pdl);
 
 	/* Send the port to Erlang. */
 	ErlDrvTermData spec[] = {
