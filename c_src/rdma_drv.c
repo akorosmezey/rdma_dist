@@ -682,8 +682,6 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 
 	/*  return; */
 	/* } */
-	/* LOG("Unlocking new port\n");
-	   driver_pdl_unlock(new_data->pdl); */
 	LOG("Unlocking old port\n");
 	driver_pdl_unlock(data->pdl);
 
@@ -739,6 +737,8 @@ static void rdma_drv_handle_rdma_cm_event_connect_request(RdmaDrvData* data, str
 			return;
 		}
 	}
+	LOG("Unlocking new port\n");
+	driver_pdl_unlock(new_data->pdl);
 	LOG("Done with accept\n");
 }
 
@@ -780,9 +780,9 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		RdmaDrvData* new_data = (RdmaDrvData*) cm_event->id->context;
 		new_data->state = STATE_CONNECTED;
 
-		/* LOG("Connected using event context\n"); */
-		/* LOG("Locking new port\n"); */
-		/* driver_pdl_lock(new_data->pdl); */
+		LOG("Connected using event context\n");
+		LOG("Locking new port\n");
+		driver_pdl_lock(new_data->pdl);
 
 		ErlDrvTermData spec[] = {
 			ERL_DRV_PORT, driver_mk_port(data->port),
