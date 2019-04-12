@@ -797,7 +797,7 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 				return;
 			}
 		}
-		driver_pdl_lock(new_data->pdl);
+		driver_pdl_unlock(new_data->pdl);
 
 		if (new_data->options.active)
 		{
