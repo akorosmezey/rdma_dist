@@ -768,11 +768,11 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		new_data->state = STATE_CONNECTED;
 
 		LOG("Connected using event context\n");
-		if (!new_data->pdl)
-		{
-			new_data->pdl = driver_create_pdl(new_data->port);
-		}
-		driver_pdl_lock(new_data->pdl);
+		/* if (!new_data->pdl) */
+		/* { */
+		/*  new_data->pdl = driver_create_pdl(new_data->port); */
+		/* } */
+		/* driver_pdl_lock(new_data->pdl); */
 
 		ErlDrvTermData spec[] = {
 			ERL_DRV_PORT, driver_mk_port(data->port),
@@ -797,7 +797,7 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 				return;
 			}
 		}
-		driver_pdl_unlock(new_data->pdl);
+		/* driver_pdl_unlock(new_data->pdl); */
 
 		if (new_data->options.active)
 		{
