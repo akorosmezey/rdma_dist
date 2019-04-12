@@ -150,6 +150,7 @@ static void rdma_drv_pause(RdmaDrvData* data)
 static void rdma_drv_resume(RdmaDrvData* data)
 {
 	/* Save who to reply to. */
+
 	data->caller = driver_caller(data->port);
 
 	if (data->ec)
@@ -781,8 +782,6 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		new_data->state = STATE_CONNECTED;
 
 		LOG("Connected using event context\n");
-		/* LOG("Locking new port\n"); */
-		/* driver_pdl_lock(new_data->pdl); */
 
 		ErlDrvTermData spec[] = {
 			ERL_DRV_PORT, driver_mk_port(data->port),
@@ -807,8 +806,10 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		/*      return; */
 		/*  } */
 		/* } */
-		/* LOG("Unlocking new port\n"); */
-		/* driver_pdl_unlock(new_data->pdl); */
+
+		/* We've completed an accept, so stop polling. */
+		LOG("Polling paused\n");
+		rdma_drv_pause(data);
 
 		if (new_data->options.active)
 		{
@@ -816,13 +817,16 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 			 * If the listener was configured to be "active", we want
 			 * to start polling the accepted socket for recvs.
 			 */
+			LOG("Locking new port\n");
+			driver_pdl_lock(new_data->pdl);
+
 			LOG("Resuming on new port\n");
 			rdma_drv_resume(new_data);
-		}
 
-		/* We've completed an accept, so stop polling. */
-		LOG("Polling paused\n");
-		rdma_drv_pause(data);
+			LOG("Unlocking new port\n");
+			driver_pdl_unlock(new_data->pdl);
+		}
+		LOG("Finished with estd");
 	}
 	else
 	{
