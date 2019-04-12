@@ -780,9 +780,9 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		RdmaDrvData* new_data = (RdmaDrvData*) cm_event->id->context;
 		new_data->state = STATE_CONNECTED;
 
-		LOG("Connected using event context\n");
-		LOG("Locking new port\n");
-		driver_pdl_lock(new_data->pdl);
+		/* LOG("Connected using event context\n"); */
+		/* LOG("Locking new port\n"); */
+		/* driver_pdl_lock(new_data->pdl); */
 
 		ErlDrvTermData spec[] = {
 			ERL_DRV_PORT, driver_mk_port(data->port),
@@ -795,20 +795,20 @@ static void rdma_drv_handle_rdma_cm_event_established(RdmaDrvData* data, struct 
 		LOG("Sending \'accept\' message\n");
 		erl_drv_send_term(driver_mk_port(data->port), data->caller, spec, sizeof(spec) / sizeof(spec[0]));
 
-		if (new_data->options.binary)
-		{
-			LOG("Setting port to binary again\n");
-			set_port_control_flags(new_data->port, PORT_CONTROL_FLAG_BINARY);
-			if (!((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY)))
-			{
-				LOG("Failed setting port to binary again\n");
-				rdma_drv_send_error_atom(new_data, "failed_to_set_port_to_binary_on_est");
+		/* if (new_data->options.binary) */
+		/* { */
+		/*  LOG("Setting port to binary again\n"); */
+		/*  set_port_control_flags(new_data->port, PORT_CONTROL_FLAG_BINARY); */
+		/*  if (!((get_port_flags(new_data->port) & PORT_CONTROL_FLAG_BINARY))) */
+		/*  { */
+		/*      LOG("Failed setting port to binary again\n"); */
+		/*      rdma_drv_send_error_atom(new_data, "failed_to_set_port_to_binary_on_est"); */
 
-				return;
-			}
-		}
-		LOG("Unlocking new port\n");
-		driver_pdl_unlock(new_data->pdl);
+		/*      return; */
+		/*  } */
+		/* } */
+		/* LOG("Unlocking new port\n"); */
+		/* driver_pdl_unlock(new_data->pdl); */
 
 		if (new_data->options.active)
 		{
